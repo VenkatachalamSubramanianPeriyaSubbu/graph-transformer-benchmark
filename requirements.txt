@@ -1,12 +1,19 @@
-torch>=2.0.0
-torchvision>=0.15.0
-torchaudio>=2.0.0
+# PyTorch (CPU or adjust CUDA if using GPU)
+torch>=2.1.0
+torchvision>=0.16.0
+torchaudio>=2.1.0
+
+# Graph Transformer implementation
 graph-transformer-pytorch
-torch-geometric>=2.4.0
-torch-scatter>=2.1.0
-torch-sparse>=0.6.17
-torch-cluster>=1.6.1
-torch-spline-conv>=1.2.2
-numpy>=1.23.0
+
+# PyTorch Geometric core dependencies (CPU wheels for macOS)
+torch-geometric>=2.6.0
+torch-scatter>=2.1.1
+torch-sparse>=0.6.18
+torch-cluster>=1.6.2
+torch-spline-conv>=1.2.3
+
+# Common utilities
+numpy>=1.24.0
 scikit-learn>=1.3.0
-tqdm>=4.65.0
+tqdm>=4.70.0
