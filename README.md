@@ -1,4 +1,3 @@
-````markdown
 # Graph Transformer Benchmark
 
 This repository provides an **easy-to-use implementation of Graph Transformer models** for graph classification tasks. It includes example usage with a standard benchmark dataset like **MUTAG**.
