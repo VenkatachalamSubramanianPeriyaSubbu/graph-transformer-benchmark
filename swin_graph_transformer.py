@@ -58,6 +58,28 @@ def balanced_kmeans(X, cluster_size, iters=10, seed=0):
     clusters = [np.where(assign == k)[0] for k in range(K)]
     return clusters, assign
 
+class GatedResidual(torch.nn.Module):
+    """
+    Gated residual connection.
+    Args:
+        dim: feature dimension
+    Returns:
+        output: gated residual output
+    """
+    def __init__(self, dim):
+        super().__init__()
+        self.hidden_dim = dim * 2
+        self.transformation = torch.nn.Sequential(
+            torch.nn.Linear(dim, self.hidden_dim),
+            torch.nn.GELU(),
+            torch.nn.Linear(self.hidden_dim, dim),
+            torch.nn.Sigmoid())
+        self.scale = torch.nn.Parameter(torch.zeros(1))
+    
+    def forward(self, x):
+        gate = self.transformation(x)
+        return x * (1 - gate) + x * gate * self.scale
+
 
 class SwinGraphBlock(torch.nn.Module):
     """
@@ -78,6 +100,7 @@ class SwinGraphBlock(torch.nn.Module):
             rel_pos_emb=True,
             accept_adjacency_matrix=True
         )
+        self.gate_res = GatedResidual(in_dim)
 
     def forward(self, x, edge_index, clusters):
         """
@@ -114,7 +137,7 @@ class SwinGraphBlock(torch.nn.Module):
 
             x_sub_out, _ = self.gt(x_sub_in, adj_mat=adj_in)
             x_sub_out = x_sub_out.squeeze(0) # remove batch dimension
-            x_out[idxs] = x_out[idxs] + x_sub_out # residual
+            x_out[idxs] = self.gate_res(x_sub_out)  # gated residual
 
         return x_out # [N, C]
     
@@ -145,6 +168,7 @@ class SwinGraphStage(torch.nn.Module):
         self.shift_block = SwinGraphBlock(in_dim, heads=heads, depth=depth)
         self.expand = torch.nn.Linear(in_dim, out_dim)  # widen channels
         self.pool = TopKPooling(out_dim, ratio=pool_ratio)  # downsample nodes
+        self.gate_res = GatedResidual(in_dim)
 
     def forward(self, x, edge_index, cluster_size, batch=None):
         """
@@ -166,7 +190,7 @@ class SwinGraphStage(torch.nn.Module):
         x = self.window_block(x, edge_index, clusters)
 
         # MLP with residual
-        x = x + self.mlp_1(x)
+        x = self.gate_res(self.mlp_1(x))
 
         # Shifted windows (different partitioning)
         X_shift = x.detach().cpu().numpy()
@@ -174,7 +198,7 @@ class SwinGraphStage(torch.nn.Module):
         x = self.shift_block(x, edge_index, shift_clusters)
 
         # MLP with residual
-        x = x + self.mlp_2(x)
+        x = self.gate_res(self.mlp_2(x))
 
         # Channel expansion like in SwinVisionTransformer
         x = self.expand(x)
